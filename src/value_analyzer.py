@@ -5,6 +5,7 @@ import colorsys
 import math
 import io
 
+
 def open_image(bytes, max_size):
     image = Image.open(io.BytesIO(bytes))
     image.thumbnail(max_size)
@@ -25,8 +26,8 @@ class ValueAnalyzer:
         counts, bins = np.histogram(img, bins=self.bins, range=(0.0, 1.0))
 
         result = {
-            'counts': counts,
-            'bins': bins[:-1]
+            'counts': counts.tolist(),
+            'bins': bins[:-1].tolist()
         }
 
         return result
@@ -38,7 +39,6 @@ class ValueAnalyzer:
         print(data)
         plt.plot(data['bins'], data['counts'])
         plt.show()
-
 
 
 # im = Image.open(img)

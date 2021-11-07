@@ -1,14 +1,17 @@
 from flask import Flask, request
 from src.color_analyzer import ColorAnalyzer
 from src.value_analyzer import ValueAnalyzer
+import json
 
 app = Flask(__name__)
 
 
 @app.route("/analyze", methods=['POST'])
 def analyze_image():
-    img = request.form['img']
+    img = request.data
     c_analyzer = ColorAnalyzer(img)
     v_analyzer = ValueAnalyzer(img)
 
-    return {'color_proportion': c_analyzer.calculate_proportions(), 'value_distribution': v_analyzer.calculate_value_distribution()}
+    print('testing', flush=True)
+
+    return json.dumps({'color_proportion': c_analyzer.calculate_proportions(), 'value_distribution': v_analyzer.calculate_value_distribution()})

@@ -8,13 +8,13 @@ import io
 
 
 def convert_to_polar(value):
-    hue, sat = value / 255
+    hue, sat = value
     hue = (hue * 2 * math.pi)
     return (hue, sat)
 
 
 def convert_to_rgb(value):
-    value = value / 255
+    value = value
     return colorsys.hsv_to_rgb(*value)
 
 
@@ -53,12 +53,12 @@ class ColorAnalyzer:
 
         result = {}
         for cluster in clusters:
-            hsv = np.average(clusters[cluster], axis=0)
+            hsv = np.average(clusters[cluster], axis=0) / 255
             rgb = convert_to_rgb(hsv)
             polar = convert_to_polar(hsv[:-1])
             count = len(clusters[cluster])
 
-            result[cluster] = {'hsv': hsv, 'rgb': rgb, 'polar': polar, 'count': count}
+            result[f'{cluster}'] = {'hsv': hsv.tolist(), 'rgb': rgb, 'polar': polar, 'count': count}
 
         return result
 
