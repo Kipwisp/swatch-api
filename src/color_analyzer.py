@@ -5,33 +5,41 @@ import matplotlib.pyplot as plt
 import colorsys
 import math
 import io
+import time
 
 
 def convert_to_polar(value):
     hue, sat = value
-    hue = (hue * 2 * math.pi)
+    hue = hue * 2 * math.pi
     return (hue, sat)
 
 
 def convert_to_rgb(value):
     value = value
-    return colorsys.hsv_to_rgb(*value)
+    rgb = np.round(np.multiply(colorsys.hsv_to_rgb(*value), 255))
+    return tuple(int(x) for x in rgb)
+
+
+def rgb_to_hex(rgb):
+    return "%02x%02x%02x" % rgb
+
+
+def rgb_to_css(rgb):
+    return f"rgb({','.join([str(x) for x in rgb])})"
 
 
 def open_image(bytes, max_size):
     image = Image.open(io.BytesIO(bytes))
     image.thumbnail(max_size)
 
-    return np.array(image.convert('HSV').getdata())
+    return np.array(image.convert("HSV").getdata())
 
 
 class ColorAnalyzer:
     def __init__(self, image):
         self.max_size = (256, 256)
-        self.epsilon = 0.4
-        self.min_samples = 2
-        self.min_size = 20
-        self.scale = 1000
+        self.epsilon = 3.0
+        self.min_samples = 6
 
         self.image = open_image(image, self.max_size)
 
@@ -42,7 +50,6 @@ class ColorAnalyzer:
         dbscan.fit(img)
 
         labels = dbscan.labels_
-
         clusters = {}
         for pixel, cluster in zip(img, labels):
             if cluster != -1:
@@ -55,36 +62,25 @@ class ColorAnalyzer:
         for cluster in clusters:
             hsv = np.average(clusters[cluster], axis=0) / 255
             rgb = convert_to_rgb(hsv)
+            css = rgb_to_css(rgb)
+            hexcolor = rgb_to_hex(rgb)
             polar = convert_to_polar(hsv[:-1])
             count = len(clusters[cluster])
 
-            result[f'{cluster}'] = {'hsv': hsv.tolist(), 'rgb': rgb, 'polar': polar, 'count': count}
+            result[f"{cluster}"] = {
+                "rgb": rgb,
+                "css": css,
+                "hex": hexcolor,
+                "polar": polar,
+                "count": min(count, 50),
+            }
 
         return result
 
-    def show_plot(self, data):
-        polar_coords = list(map(lambda x: data[x]['polar'], data.keys()))
-
-        x = list(map(lambda x: x[0], polar_coords))
-        y = list(map(lambda x: x[1], polar_coords))
-
-        colors = list(map(lambda x: data[x]['rgb'], data.keys()))
-        sizes = list(map(lambda x: data[x]['count'], data.keys()))
-
-        max_size = max(sizes)
-        sizes = list(map(lambda x: max((x / max_size) * self.scale, self.min_size), sizes))
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, polar=True)
-        ax.scatter(x, y, c=colors, s=sizes)
-
-        plt.show()
-
-
-# im = Image.open(img)
-# buf = io.BytesIO()
-# im.save(buf, format='PNG')
-
-# analyzer = ColorAnalyzer(buf.getvalue())
-# result = analyzer.calculate_proportions()
-# analyzer.show_plot(result)
+    def get_dominant_colors(self, clusters):
+        n = 5
+        dominant = [
+            x["rgb"] for x in sorted(clusters.values(), key=lambda x: x["count"])[:n]
+        ]
+        print(dominant)
+        return [{"rgb": rgb_to_css(x), "hex": rgb_to_hex(x)} for x in dominant]
