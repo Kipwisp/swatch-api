@@ -10,7 +10,7 @@ def open_image(bytes, max_size):
     image = Image.open(io.BytesIO(bytes))
     image.thumbnail(max_size)
 
-    return np.array(image.convert('L').getdata()) / 255
+    return (np.array(image.convert("L").getdata()) / 255) * 100
 
 
 class ValueAnalyzer:
@@ -23,28 +23,15 @@ class ValueAnalyzer:
     def calculate_value_distribution(self):
         img = self.image
 
-        counts, bins = np.histogram(img, bins=self.bins, range=(0.0, 1.0))
+        counts, bins = np.histogram(img, bins=self.bins, range=(0, 100), density=True)
+        counts = counts.tolist()
+        bins = bins[:-1].tolist()
 
-        result = {
-            'counts': counts.tolist(),
-            'bins': bins[:-1].tolist()
-        }
+        result = {i: {"count": counts[i], "bin": bins[i]} for i in range(len(counts))}
+
+        print(result)
 
         return result
 
     def get_value_shapes(self):
         pass
-
-    def show_plot(self, data):
-        print(data)
-        plt.plot(data['bins'], data['counts'])
-        plt.show()
-
-
-# im = Image.open(img)
-# buf = io.BytesIO()
-# im.save(buf, format='PNG')
-
-# analyzer = ValueAnalyzer(buf.getvalue())
-# result = analyzer.calculate_value_distribution()
-# analyzer.show_plot(result)

@@ -1,11 +1,9 @@
 from sklearn.cluster import DBSCAN
 from PIL import Image
 import numpy as np
-import matplotlib.pyplot as plt
 import colorsys
 import math
 import io
-import time
 
 
 def convert_to_polar(value):
@@ -26,6 +24,10 @@ def rgb_to_hex(rgb):
 
 def rgb_to_css(rgb):
     return f"rgb({','.join([str(x) for x in rgb])})"
+
+
+def get_distance(x, y):
+    return np.linalg.norm(np.array(x) - np.array(y))
 
 
 def open_image(bytes, max_size):
@@ -58,6 +60,13 @@ class ColorAnalyzer:
 
                 clusters[cluster].append(pixel)
 
+        max = sum([len(clusters[cluster]) for cluster in clusters])
+        print(max)
+
+        n = 7
+        dist_threshold = 70
+        cov_threshold = 0.005
+        palette = []
         result = {}
         for cluster in clusters:
             hsv = np.average(clusters[cluster], axis=0) / 255
@@ -67,6 +76,33 @@ class ColorAnalyzer:
             polar = convert_to_polar(hsv[:-1])
             count = len(clusters[cluster])
 
+            coverage = count / max
+            add_to_palette = False
+            candidate = {
+                "value": rgb,
+                "rgb": rgb_to_css(rgb),
+                "hex": rgb_to_hex(rgb),
+                "count": count,
+            }
+
+            if len(palette) < n or coverage >= cov_threshold:
+                add_to_palette = True
+
+            r_index = -1
+            for other in palette:
+                if get_distance(rgb, other["value"]) < dist_threshold:
+                    if other["count"] >= count:
+                        add_to_palette = False
+                    else:
+                        r_index = palette.index(other)
+                    break
+
+            if add_to_palette:
+                if len(palette) >= n or r_index != -1:
+                    palette.pop(r_index)
+                palette.append(candidate)
+                palette = sorted(palette, key=lambda x: x["count"], reverse=True)
+
             result[f"{cluster}"] = {
                 "rgb": rgb,
                 "css": css,
@@ -75,12 +111,4 @@ class ColorAnalyzer:
                 "count": min(count, 50),
             }
 
-        return result
-
-    def get_dominant_colors(self, clusters):
-        n = 5
-        dominant = [
-            x["rgb"] for x in sorted(clusters.values(), key=lambda x: x["count"])[:n]
-        ]
-        print(dominant)
-        return [{"rgb": rgb_to_css(x), "hex": rgb_to_hex(x)} for x in dominant]
+        return result, palette

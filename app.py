@@ -14,13 +14,12 @@ def analyze_image():
     c_analyzer = ColorAnalyzer(img)
     v_analyzer = ValueAnalyzer(img)
 
-    color_proportions = c_analyzer.calculate_proportions()
+    color_proportions, palette = c_analyzer.calculate_proportions()
 
     response = {
         "color_proportion": color_proportions,
-        "dominant_colors": c_analyzer.get_dominant_colors(color_proportions),
+        "color_palette": palette,
         "value_distribution": v_analyzer.calculate_value_distribution(),
     }
 
-    print(response)
     return json.dumps(response)
