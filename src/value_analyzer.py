@@ -1,8 +1,5 @@
 from PIL import Image
 import numpy as np
-import matplotlib.pyplot as plt
-import colorsys
-import math
 import io
 
 
@@ -28,8 +25,6 @@ class ValueAnalyzer:
         bins = bins[:-1].tolist()
 
         result = {i: {"count": counts[i], "bin": bins[i]} for i in range(len(counts))}
-
-        print(result)
 
         return result
 

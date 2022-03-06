@@ -39,7 +39,7 @@ def open_image(bytes, max_size):
 
 class ColorAnalyzer:
     def __init__(self, image):
-        self.max_size = (256, 256)
+        self.max_size = (128, 128)
         self.epsilon = 3.0
         self.min_samples = 6
 
@@ -61,7 +61,6 @@ class ColorAnalyzer:
                 clusters[cluster].append(pixel)
 
         max = sum([len(clusters[cluster]) for cluster in clusters])
-        print(max)
 
         n = 7
         dist_threshold = 70
@@ -108,7 +107,7 @@ class ColorAnalyzer:
                 "css": css,
                 "hex": hexcolor,
                 "polar": polar,
-                "count": min(count, 50),
+                "count": count,
             }
 
         return result, palette
