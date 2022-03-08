@@ -36,7 +36,7 @@ def open_image(bytes, max_size):
 class ColorAnalyzer:
     def __init__(self, image):
         self.max_size = (128, 128)
-        self.epsilon = 0.1
+        self.epsilon = 1.0
         self.min_samples = 2
 
         self.image = open_image(image, self.max_size)
@@ -56,14 +56,14 @@ class ColorAnalyzer:
 
                 clusters[cluster].append(pixel)
 
-        palette_size = 7
-        dist_threshold = 60
+        palette_size = 8
+        dist_threshold = 75
         palette = []
         result = {}
         for cluster in clusters:
             color = np.average(clusters[cluster], axis=0)
             normalized = color / 255
-            hsv = color.tolist()
+            hsv = [round(x) for x in color.tolist()]
             rgb = convert_to_rgb(normalized)
             hexcolor = rgb_to_hex(rgb)
             polar = convert_to_polar(normalized[:-1])
