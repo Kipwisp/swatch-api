@@ -22,10 +22,6 @@ def rgb_to_hex(rgb):
     return "%02x%02x%02x" % rgb
 
 
-def rgb_to_css(rgb):
-    return f"rgb({','.join([str(x) for x in rgb])})"
-
-
 def get_distance(x, y):
     return np.linalg.norm(np.array(x) - np.array(y))
 
@@ -40,8 +36,8 @@ def open_image(bytes, max_size):
 class ColorAnalyzer:
     def __init__(self, image):
         self.max_size = (128, 128)
-        self.epsilon = 3.0
-        self.min_samples = 6
+        self.epsilon = 0.1
+        self.min_samples = 2
 
         self.image = open_image(image, self.max_size)
 
@@ -60,32 +56,25 @@ class ColorAnalyzer:
 
                 clusters[cluster].append(pixel)
 
-        max = sum([len(clusters[cluster]) for cluster in clusters])
-
-        n = 7
-        dist_threshold = 70
-        cov_threshold = 0.005
+        palette_size = 7
+        dist_threshold = 60
         palette = []
         result = {}
         for cluster in clusters:
-            hsv = np.average(clusters[cluster], axis=0) / 255
-            rgb = convert_to_rgb(hsv)
-            css = rgb_to_css(rgb)
+            color = np.average(clusters[cluster], axis=0)
+            normalized = color / 255
+            hsv = color.tolist()
+            rgb = convert_to_rgb(normalized)
             hexcolor = rgb_to_hex(rgb)
-            polar = convert_to_polar(hsv[:-1])
+            polar = convert_to_polar(normalized[:-1])
             count = len(clusters[cluster])
 
-            coverage = count / max
-            add_to_palette = False
+            add_to_palette = True
             candidate = {
                 "value": rgb,
-                "rgb": rgb_to_css(rgb),
                 "hex": rgb_to_hex(rgb),
                 "count": count,
             }
-
-            if len(palette) < n or coverage >= cov_threshold:
-                add_to_palette = True
 
             r_index = -1
             for other in palette:
@@ -97,15 +86,15 @@ class ColorAnalyzer:
                     break
 
             if add_to_palette:
-                if len(palette) >= n or r_index != -1:
+                if len(palette) >= palette_size:
                     palette.pop(r_index)
                 palette.append(candidate)
                 palette = sorted(palette, key=lambda x: x["count"], reverse=True)
 
             result[f"{cluster}"] = {
                 "rgb": rgb,
-                "css": css,
                 "hex": hexcolor,
+                "hsv": hsv,
                 "polar": polar,
                 "count": count,
             }
