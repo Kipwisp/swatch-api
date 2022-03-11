@@ -64,6 +64,10 @@ def rgb_to_lab(rgb):
 def lab_to_rgb(lab):
     L, a, b = lab
 
+    L *= 100 / 255
+    a -= 127
+    b -= 127
+
     y = (L + 16) / 116
     x = a / 500 + y
     z = y - b / 200
@@ -100,20 +104,11 @@ def get_distance(x, y):
     return np.linalg.norm(np.array(x) - np.array(y))
 
 
-print(lab_to_rgb(rgb_to_lab([100, 100, 100])))
-
-
 def open_image(bytes, max_size):
-    rgb2lab = ImageCms.buildTransformFromOpenProfiles(
-        ImageCms.createProfile("sRGB"),
-        ImageCms.createProfile("LAB"),
-        "RGB",
-        "LAB",
-    )
     image = Image.open(io.BytesIO(bytes))
     image.thumbnail(max_size)
 
-    return np.array(ImageCms.applyTransform(image.convert("RGB"), rgb2lab).getdata())
+    return np.array(image.convert("RGB").getdata())
 
 
 class ColorAnalyzer:
@@ -127,38 +122,28 @@ class ColorAnalyzer:
     def calculate_proportions(self):
         img = self.image
 
-        dbscan = DBSCAN(eps=self.epsilon, min_samples=self.min_samples).fit(img)
-        dbscan.fit(img)
+        colors, counts = np.unique(img, return_counts=True, axis=0)
 
-        labels = dbscan.labels_
-        clusters = {}
-        for pixel, cluster in zip(img, labels):
-            if cluster != -1:
-                if cluster not in clusters:
-                    clusters[cluster] = []
-
-                clusters[cluster].append(pixel)
-
-        palette_size = 9
+        palette_size = 8
         dist_threshold = 30
-        dist_weight = 1.5
+        dist_weight = 0.5
         palette = []
         result = {}
 
-        print(lab_to_rgb([255, 127, 127]))
+        for i, cluster in enumerate(zip(colors, counts)):
+            color, count = cluster
+            if count == 1:
+                continue
 
-        for cluster in clusters:
-            color = np.average(clusters[cluster], axis=0)
+            count = int(count)
+            rgb = tuple(int(x) for x in color.tolist())
 
-            rgb = lab_to_rgb(color)
             hexcolor = rgb_to_hex(rgb)
 
             hsv = rgb_to_hsv(rgb)
             polar = hsv_to_polar(hsv)
 
             lab = rgb_to_lab(rgb)
-
-            count = len(clusters[cluster])
 
             add_to_palette = True
             candidate = {
@@ -170,7 +155,7 @@ class ColorAnalyzer:
             }
 
             r_index = -1
-            score = count + (palette_size - len(palette)) * 100 * dist_weight
+            score = count + (palette_size - len(palette)) * 50 * dist_weight
             for other in palette:
                 dist = get_distance(lab, other["lab"])
                 score += dist * dist_weight
@@ -187,7 +172,7 @@ class ColorAnalyzer:
                 palette.append(candidate)
                 palette = sorted(palette, key=lambda x: x["score"], reverse=True)
 
-            result[f"{cluster}"] = {
+            result[f"{i}"] = {
                 "rgb": rgb,
                 "hex": hexcolor,
                 "hsv": hsv,
