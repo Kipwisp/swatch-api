@@ -1,5 +1,4 @@
-from sklearn.cluster import DBSCAN
-from PIL import Image, ImageCms
+from PIL import Image
 import numpy as np
 import colorsys
 import math
@@ -75,8 +74,8 @@ def lab_to_rgb(lab):
     res = [x, y, z]
 
     for i, value in enumerate(res):
-        if value ** 3 > 0.008856:
-            res[i] = value ** 3
+        if value**3 > 0.008856:
+            res[i] = value**3
         else:
             res[i] = (value - 16 / 116) / 7.787
 
@@ -108,30 +107,30 @@ def open_image(bytes, max_size):
     image = Image.open(io.BytesIO(bytes))
     image.thumbnail(max_size)
 
-    return np.array(image.convert("RGB").getdata())
+    return np.array(image.convert("RGB").getdata()), image.width, image.height
 
 
 class ColorAnalyzer:
-    def __init__(self, image):
-        self.max_size = (128, 128)
-        self.epsilon = 0.1
-        self.min_samples = 2
-
-        self.image = open_image(image, self.max_size)
+    def __init__(self, image, max_size):
+        self.max_size = max_size
+        self.image, self.width, self.height = open_image(image, self.max_size)
 
     def calculate_proportions(self):
         img = self.image
 
-        colors, counts = np.unique(img, return_counts=True, axis=0)
+        colors, indices, counts = np.unique(
+            img, return_index=True, return_counts=True, axis=0
+        )
 
         palette_size = 8
-        dist_threshold = 30
+        dist_threshold = 25
         dist_weight = 0.5
+        bias = 50
         palette = []
         result = {}
 
-        for i, cluster in enumerate(zip(colors, counts)):
-            color, count = cluster
+        for i, cluster in enumerate(zip(colors, counts, indices)):
+            color, count, index = cluster
             if count == 1:
                 continue
 
@@ -139,11 +138,13 @@ class ColorAnalyzer:
             rgb = tuple(int(x) for x in color.tolist())
 
             hexcolor = rgb_to_hex(rgb)
-
             hsv = rgb_to_hsv(rgb)
             polar = hsv_to_polar(hsv)
-
             lab = rgb_to_lab(rgb)
+
+            row = int(index // self.width)
+            column = int(index % self.width)
+            pos = (column, row)
 
             add_to_palette = True
             candidate = {
@@ -151,16 +152,23 @@ class ColorAnalyzer:
                 "hsv": hsv,
                 "hex": hexcolor,
                 "count": count,
+                "pos": pos,
                 "score": 0,
             }
 
+            violations = 0
             r_index = -1
-            score = count + (palette_size - len(palette)) * 50 * dist_weight
+            score = count + (palette_size - len(palette)) * bias * dist_weight
             for other in palette:
                 dist = get_distance(lab, other["lab"])
                 score += dist * dist_weight
                 if dist < dist_threshold:
                     r_index = palette.index(other)
+                    violations += 1
+
+                if violations > 1:
+                    add_to_palette = False
+                    break
 
             if r_index != -1 and palette[r_index]["score"] >= score:
                 add_to_palette = False
@@ -178,8 +186,10 @@ class ColorAnalyzer:
                 "hsv": hsv,
                 "polar": polar,
                 "count": count,
+                "pos": pos,
             }
 
         palette = sorted(palette, key=lambda x: x["hsv"][0], reverse=True)
+        palette = [{"hex": x["hex"], "pos": x["pos"]} for x in palette]
 
         return result, palette

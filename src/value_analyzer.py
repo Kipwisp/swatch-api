@@ -11,8 +11,8 @@ def open_image(bytes, max_size):
 
 
 class ValueAnalyzer:
-    def __init__(self, image):
-        self.max_size = (256, 256)
+    def __init__(self, image, max_size):
+        self.max_size = max_size
         self.bins = 20
 
         self.image = open_image(image, self.max_size)
@@ -20,10 +20,16 @@ class ValueAnalyzer:
     def calculate_value_distribution(self):
         img = self.image
 
-        counts, bins = np.histogram(img, bins=self.bins, range=(0, 100), density=True)
-        counts = counts.tolist()
-        bins = bins[:-1].tolist()
+        counts, bins = np.histogram(
+            img,
+            bins=20,
+            range=(-3, 103),
+            density=True,
+        )
 
+        bins = np.round(0.5 * (bins[1:] + bins[:-1]))
+        counts = counts.tolist()
+        bins = bins.tolist()
         result = {i: {"count": counts[i], "bin": bins[i]} for i in range(len(counts))}
 
         return result
