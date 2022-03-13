@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image, ImageCms
 import numpy as np
 import colorsys
 import math
@@ -100,47 +100,76 @@ def lab_to_rgb(lab):
 
 
 def get_distance(x, y):
-    return np.linalg.norm(np.array(x) - np.array(y))
-
-
-def open_image(bytes, max_size):
-    image = Image.open(io.BytesIO(bytes))
-    image.thumbnail(max_size)
-
-    return np.array(image.convert("RGB").getdata()), image.width, image.height
+    return np.linalg.norm(x - y)
 
 
 class ColorAnalyzer:
     def __init__(self, image, max_size):
         self.max_size = max_size
-        self.image, self.width, self.height = open_image(image, self.max_size)
+        self.image, self.width, self.height = self.open_image(image, self.max_size)
+
+    def open_image(self, bytes, max_size):
+        rgb2lab = ImageCms.buildTransformFromOpenProfiles(
+            ImageCms.createProfile("sRGB"),
+            ImageCms.createProfile("LAB"),
+            "RGB",
+            "LAB",
+        )
+        image = Image.open(io.BytesIO(bytes))
+        image.thumbnail(max_size)
+
+        return (
+            np.array(ImageCms.applyTransform(image.convert("RGB"), rgb2lab).getdata()),
+            image.width,
+            image.height,
+        )
+
+    def cluster_colors(self, img):
+        sample_step = 10
+        dist_threshold = 20
+
+        clusters = {}
+        for i in range(0, len(img), sample_step):
+            pixel = img[i]
+            found_cluster = False
+            for cluster in clusters:
+                if get_distance(cluster, pixel) < dist_threshold:
+                    clusters[cluster]["values"].append(pixel)
+                    found_cluster = True
+                    break
+
+            if not found_cluster:
+                clusters[tuple(pixel.tolist())] = {"values": [pixel], "index": i}
+
+        return clusters
 
     def calculate_proportions(self):
         img = self.image
 
-        colors, indices, counts = np.unique(
-            img, return_index=True, return_counts=True, axis=0
-        )
+        clusters = self.cluster_colors(img)
 
         palette_size = 8
-        dist_threshold = 25
-        dist_weight = 0.5
-        bias = 50
+        dist_threshold = 35
+        dist_weight = 0.7
+        count_weight = 0.3
+        bias = 25
         palette = []
         result = {}
 
-        for i, cluster in enumerate(zip(colors, counts, indices)):
-            color, count, index = cluster
+        for i, cluster in enumerate(clusters):
+            colors = clusters[cluster]["values"]
+            index = clusters[cluster]["index"]
+            count = len(colors)
+
             if count == 1:
                 continue
 
-            count = int(count)
-            rgb = tuple(int(x) for x in color.tolist())
+            lab = np.average(colors, axis=0)
 
+            rgb = lab_to_rgb(lab)
             hexcolor = rgb_to_hex(rgb)
             hsv = rgb_to_hsv(rgb)
             polar = hsv_to_polar(hsv)
-            lab = rgb_to_lab(rgb)
 
             row = int(index // self.width)
             column = int(index % self.width)
@@ -158,12 +187,15 @@ class ColorAnalyzer:
 
             violations = 0
             r_index = -1
-            score = count + (palette_size - len(palette)) * bias * dist_weight
-            for other in palette:
+            score = (
+                count * count_weight
+                + (palette_size - len(palette)) * bias * dist_weight
+            )
+            for j, other in enumerate(palette):
                 dist = get_distance(lab, other["lab"])
                 score += dist * dist_weight
                 if dist < dist_threshold:
-                    r_index = palette.index(other)
+                    r_index = j
                     violations += 1
 
                 if violations > 1:
@@ -176,9 +208,14 @@ class ColorAnalyzer:
             if add_to_palette:
                 candidate["score"] = score
                 if len(palette) >= palette_size or r_index != -1:
+                    r_index = (
+                        min(range(len(palette)), key=palette.__getitem__["score"])
+                        if r_index == -1
+                        else r_index
+                    )
                     palette.pop(r_index)
+
                 palette.append(candidate)
-                palette = sorted(palette, key=lambda x: x["score"], reverse=True)
 
             result[f"{i}"] = {
                 "rgb": rgb,
