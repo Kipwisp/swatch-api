@@ -57,7 +57,7 @@ def rgb_to_lab(rgb):
     a = 500 * (x - y)
     b = 200 * (y - z)
 
-    return tuple(round(x) for x in [L, a, b])
+    return tuple(int(round(x)) for x in [L, a, b])
 
 
 def lab_to_rgb(lab):
@@ -96,7 +96,7 @@ def lab_to_rgb(lab):
             res[i] *= 12.92
         res[i] *= 255
 
-    return tuple(max(min(round(v), 255), 0) for v in res)
+    return tuple(int(max(min(round(v), 255), 0)) for v in res)
 
 
 def get_distance(x, y):
