@@ -208,11 +208,11 @@ class ColorAnalyzer:
             if add_to_palette:
                 candidate["score"] = score
                 if len(palette) >= palette_size or r_index != -1:
-                    r_index = (
-                        min(range(len(palette)), key=palette.__getitem__["score"])
-                        if r_index == -1
-                        else r_index
-                    )
+                    if r_index == -1:
+                        r_index = min(
+                            range(len(palette)),
+                            key=lambda x: palette[x]["score"],
+                        )
                     palette.pop(r_index)
 
                 palette.append(candidate)
