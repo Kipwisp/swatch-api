@@ -143,16 +143,48 @@ class ColorAnalyzer:
 
         return clusters
 
+    def valid_palette_color(self, candidate, palette, palette_size):
+        dist_threshold = 35
+        dist_weight = 0.7
+        count_weight = 0.3
+        bias = 25
+
+        lab = candidate["lab"]
+        count = candidate["count"]
+
+        r_index = -1
+        score = (
+            count * count_weight + (palette_size - len(palette)) * bias * dist_weight
+        )
+
+        violations = 0
+        for j, other in enumerate(palette):
+            dist = get_distance(lab, other["lab"])
+            score += dist * dist_weight
+            if dist < dist_threshold:
+                r_index = j
+                violations += 1
+
+            if violations > 1:
+                return False, -1, -1
+
+        if len(palette) >= palette_size and r_index == -1:
+            r_index = min(
+                range(len(palette)),
+                key=lambda x: palette[x]["score"],
+            )
+
+        if r_index != -1 and palette[r_index]["score"] >= score:
+            return False, -1, -1
+
+        return True, score, r_index
+
     def calculate_proportions(self):
         img = self.image
 
         clusters = self.cluster_colors(img)
 
         palette_size = 8
-        dist_threshold = 35
-        dist_weight = 0.7
-        count_weight = 0.3
-        bias = 25
         palette = []
         result = {}
 
@@ -175,7 +207,6 @@ class ColorAnalyzer:
             column = int(index % self.width)
             pos = (column, row)
 
-            add_to_palette = True
             candidate = {
                 "lab": lab,
                 "hsv": hsv,
@@ -185,34 +216,13 @@ class ColorAnalyzer:
                 "score": 0,
             }
 
-            violations = 0
-            r_index = -1
-            score = (
-                count * count_weight
-                + (palette_size - len(palette)) * bias * dist_weight
+            add_to_palette, score, r_index = self.valid_palette_color(
+                candidate, palette, palette_size
             )
-            for j, other in enumerate(palette):
-                dist = get_distance(lab, other["lab"])
-                score += dist * dist_weight
-                if dist < dist_threshold:
-                    r_index = j
-                    violations += 1
-
-                if violations > 1:
-                    add_to_palette = False
-                    break
-
-            if r_index != -1 and palette[r_index]["score"] >= score:
-                add_to_palette = False
 
             if add_to_palette:
                 candidate["score"] = score
-                if len(palette) >= palette_size or r_index != -1:
-                    if r_index == -1:
-                        r_index = min(
-                            range(len(palette)),
-                            key=lambda x: palette[x]["score"],
-                        )
+                if r_index != -1:
                     palette.pop(r_index)
 
                 palette.append(candidate)
