@@ -1,4 +1,6 @@
 # Swatch! API
+[![GitHub license](https://img.shields.io/github/license/Kipwisp/swatch-api)](https://github.com/Kipwisp/swatch-api/blob/master/LICENSE)
+
 This is the API that the [Swatch!](https://github.com/Kipwisp/swatch-app) web application utilizes to analyze images. It runs on a Flask server and utilizes Gunicorn as a WSGI. 
 
 ## Setting Up
