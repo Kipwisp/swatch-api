@@ -74,8 +74,8 @@ def lab_to_rgb(lab):
     res = [x, y, z]
 
     for i, value in enumerate(res):
-        if value**3 > 0.008856:
-            res[i] = value**3
+        if value ** 3 > 0.008856:
+            res[i] = value ** 3
         else:
             res[i] = (value - 16 / 116) / 7.787
 
@@ -145,28 +145,30 @@ class ColorAnalyzer:
 
     def valid_palette_color(self, candidate, palette, palette_size):
         dist_threshold = 35
-        dist_weight = 0.7
-        count_weight = 0.3
-        bias = 25
+        dist_weight = 0.8
+        count_weight = 0.2
 
         lab = candidate["lab"]
         count = candidate["count"]
 
         r_index = -1
-        score = (
-            count * count_weight + (palette_size - len(palette)) * bias * dist_weight
-        )
+        score = count * count_weight
 
         violations = 0
+        min_dist = math.inf
         for j, other in enumerate(palette):
             dist = get_distance(lab, other["lab"])
-            score += dist * dist_weight
+
+            min_dist = min(dist, min_dist)
+
             if dist < dist_threshold:
                 r_index = j
                 violations += 1
 
             if violations > 1:
                 return False, -1, -1
+
+        score += min_dist * dist_weight
 
         if len(palette) >= palette_size and r_index == -1:
             r_index = min(
